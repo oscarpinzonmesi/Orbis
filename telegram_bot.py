@@ -1,9 +1,11 @@
 import os
 import json
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 AGENDA_FILE = "agenda.json"
+app = None  # instancia global de la aplicación
 
 # --- Funciones para manejar la agenda ---
 def cargar_agenda():
@@ -52,21 +54,22 @@ async def borrar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❌ Usa el formato: /borrar 09:00")
 
-# --- Crear el bot ---
-def crear_app():
+# --- Inicialización del bot ---
+def iniciar_bot():
+    global app
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         raise ValueError("⚠️ TELEGRAM_TOKEN no está configurado")
 
-    app = Application.builder().token(token).build()
+    app = ApplicationBuilder().token(token).build()
 
-    # Comandos
+    # Handlers de comandos
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("registrar", registrar))
     app.add_handler(CommandHandler("agenda", ver_agenda))
     app.add_handler(CommandHandler("borrar", borrar))
 
-    # Mensajes normales
+    # Handler de mensajes de texto
     async def mensajes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texto = update.message.text.lower()
         if "qué tengo" in texto or "que tengo" in texto:
@@ -76,4 +79,13 @@ def crear_app():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensajes))
 
-    return app
+    print("🤖 Orbis está listo con Webhook")
+
+# --- Procesar actualizaciones que vienen de Telegram ---
+def procesar_update(update_data):
+    global app
+    if app is None:
+        raise RuntimeError("❌ El bot no está inicializado")
+
+    update = Update.de_json(update_data, app.bot)
+    asyncio.run(app.process_update(update))
