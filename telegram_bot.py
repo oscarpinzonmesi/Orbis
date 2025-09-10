@@ -1,14 +1,16 @@
 import json
 import re
 import os
+import threading
+import time
 from datetime import datetime, timedelta
 from telegram.ext import Updater, MessageHandler, Filters, CommandHandler, CallbackContext
 from telegram import Update
-import threading
-import time
 
-TOKEN = "7794507889:AAFRR5magLuxpXSCfJEGfy8IVZjoJZBU2aY"  # Reemplaza con tu token de BotFather
+# 🔑 Token desde variable de entorno (Render lo provee)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 AGENDA_FILE = "agenda.json"
+CHAT_ID = None  # Se registra con /registrar
 
 # -------------------------------
 # Gestión de la agenda
@@ -24,7 +26,7 @@ def guardar_agenda(agenda):
         json.dump(agenda, f, indent=4, ensure_ascii=False)
 
 # -------------------------------
-# Parser de frases en español
+# Interpretar frases en español
 # -------------------------------
 def interpretar_frase(frase: str):
     frase = frase.lower()
@@ -55,18 +57,25 @@ def interpretar_frase(frase: str):
 
     fecha_hora = datetime.combine(fecha, datetime.min.time()).replace(hour=horas, minute=minutos)
 
-    # Extraer tarea (lo que queda después de la hora y palabras clave)
-    tarea = re.sub(r"(hoy|mañana|pasado mañana|\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.)?)", "", frase, flags=re.IGNORECASE).strip()
+    # Extraer tarea
+    tarea = re.sub(r"(hoy|mañana|pasado mañana|\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.)?)",
+                   "", frase, flags=re.IGNORECASE).strip()
     if not tarea:
         tarea = "Tarea pendiente"
 
     return fecha_hora.strftime("%Y-%m-%d %H:%M"), tarea
 
 # -------------------------------
-# Responder mensajes
+# Funciones del bot
 # -------------------------------
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text("👋 Hola Doctor Mesa, soy Orbis Asistente 🪐.\n\nPuedes decirme cosas como:\n- 'Recuérdame audiencia mañana a las 9'\n- 'Borra la reunión de las 3'\n- '¿Qué tengo hoy?'")
+    update.message.reply_text(
+        "👋 Hola Doctor Mesa, soy Orbis Asistente 🪐.\n\n"
+        "Puedes decirme cosas como:\n"
+        "- 'Recuérdame audiencia mañana a las 9'\n"
+        "- 'Borra la reunión de las 3'\n"
+        "- '¿Qué tengo hoy?'"
+    )
 
 def procesar_mensaje(update: Update, context: CallbackContext):
     texto = update.message.text.lower()
@@ -77,31 +86,26 @@ def procesar_mensaje(update: Update, context: CallbackContext):
         update.message.reply_text("👋 Claro Doctor Mesa, aquí estoy para ayudarle.")
         return
 
-    # Consultas
+    # Consultar agenda de hoy
     if "qué tengo hoy" in texto or "agenda de hoy" in texto:
         hoy = datetime.now().date()
-        tareas = [f"🕒 {h} → {t}" for h, t in agenda.items() if datetime.strptime(h, "%Y-%m-%d %H:%M").date() == hoy]
-        if tareas:
-            update.message.reply_text("📅 Tareas de hoy:\n" + "\n".join(tareas))
-        else:
-            update.message.reply_text("📭 Hoy no tienes tareas programadas.")
+        tareas = [f"🕒 {h} → {t}" for h, t in agenda.items()
+                  if datetime.strptime(h, "%Y-%m-%d %H:%M").date() == hoy]
+        update.message.reply_text("📅 Tareas de hoy:\n" + "\n".join(tareas) if tareas else "📭 Hoy no tienes tareas.")
         return
 
+    # Consultar agenda completa
     if "agenda completa" in texto or "todo" in texto:
-        if agenda:
-            tareas = [f"🕒 {h} → {t}" for h, t in sorted(agenda.items())]
-            update.message.reply_text("📅 Agenda completa:\n" + "\n".join(tareas))
-        else:
-            update.message.reply_text("📭 No tienes tareas en tu agenda.")
+        tareas = [f"🕒 {h} → {t}" for h, t in sorted(agenda.items())]
+        update.message.reply_text("📅 Agenda completa:\n" + "\n".join(tareas) if tareas else "📭 No tienes tareas.")
         return
 
+    # Consultar mañana
     if "mañana" in texto and "agenda" in texto:
         mañana = (datetime.now() + timedelta(days=1)).date()
-        tareas = [f"🕒 {h} → {t}" for h, t in agenda.items() if datetime.strptime(h, "%Y-%m-%d %H:%M").date() == mañana]
-        if tareas:
-            update.message.reply_text("📅 Agenda de mañana:\n" + "\n".join(tareas))
-        else:
-            update.message.reply_text("📭 No tienes tareas para mañana.")
+        tareas = [f"🕒 {h} → {t}" for h, t in agenda.items()
+                  if datetime.strptime(h, "%Y-%m-%d %H:%M").date() == mañana]
+        update.message.reply_text("📅 Agenda de mañana:\n" + "\n".join(tareas) if tareas else "📭 No tienes tareas mañana.")
         return
 
     # Eliminar
@@ -118,12 +122,16 @@ def procesar_mensaje(update: Update, context: CallbackContext):
         update.message.reply_text("⚠️ No encontré la tarea a borrar.")
         return
 
-    # Si no es ninguna de las anteriores → Agendar
+    # Agregar tarea
     fecha_hora, tarea = interpretar_frase(texto)
     agenda[fecha_hora] = tarea
     guardar_agenda(agenda)
     update.message.reply_text(f"✅ Tarea agendada: {fecha_hora} → {tarea}")
 
+def obtener_chatid(update: Update, context: CallbackContext):
+    global CHAT_ID
+    CHAT_ID = update.message.chat_id
+    update.message.reply_text("✅ Chat registrado para recordatorios.")
 
 # -------------------------------
 # Motor de recordatorios
@@ -132,7 +140,7 @@ def enviar_recordatorios(bot):
     while True:
         agenda = cargar_agenda()
         ahora = datetime.now().strftime("%Y-%m-%d %H:%M")
-        if ahora in agenda:
+        if CHAT_ID and ahora in agenda:
             tarea = agenda[ahora]
             bot.send_message(chat_id=CHAT_ID, text=f"⏰ Recordatorio: {tarea}\n¿Completada ✅ o Reprogramar ⏳?")
         time.sleep(60)
@@ -140,34 +148,20 @@ def enviar_recordatorios(bot):
 # -------------------------------
 # Main
 # -------------------------------
-def main():
-    updater = Updater(TOKEN, use_context=True)
+def iniciar_bot():
+    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, procesar_mensaje))
-
-    # Iniciar bot
-    updater.start_polling()
-
-    # Hilo para recordatorios automáticos
-    bot = updater.bot
-    global CHAT_ID
-    CHAT_ID = None
-
-    def obtener_chatid(update: Update, context: CallbackContext):
-        global CHAT_ID
-        CHAT_ID = update.message.chat_id
-        update.message.reply_text("✅ Chat registrado para recordatorios.")
-
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, procesar_mensaje))
     dp.add_handler(CommandHandler("registrar", obtener_chatid))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, procesar_mensaje))
 
-    # Si quieres que arranque recordatorios automáticos
-    hilo = threading.Thread(target=enviar_recordatorios, args=(bot,), daemon=True)
+    # Hilo paralelo para recordatorios
+    hilo = threading.Thread(target=enviar_recordatorios, args=(updater.bot,), daemon=True)
     hilo.start()
 
+    updater.start_polling()
     updater.idle()
 
 if __name__ == "__main__":
-    main()
+    iniciar_bot()
