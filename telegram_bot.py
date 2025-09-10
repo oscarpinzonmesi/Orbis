@@ -1,5 +1,9 @@
 import os
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👋 Hola, soy Orbis. Tu asistente está listo.")
 
 # Aquí tus handlers como ya los tienes (start, registrar, agenda, borrar...)
 
