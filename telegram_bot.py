@@ -1,7 +1,7 @@
 import os
 import json
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 AGENDA_FILE = "agenda.json"
 
@@ -52,13 +52,13 @@ async def borrar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❌ Usa el formato: /borrar 09:00")
 
-# --- Iniciar el bot ---
-def iniciar_bot():
+# --- Crear el bot ---
+def crear_app():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         raise ValueError("⚠️ TELEGRAM_TOKEN no está configurado")
 
-    app = ApplicationBuilder().token(token).build()
+    app = Application.builder().token(token).build()
 
     # Comandos
     app.add_handler(CommandHandler("start", start))
@@ -66,7 +66,7 @@ def iniciar_bot():
     app.add_handler(CommandHandler("agenda", ver_agenda))
     app.add_handler(CommandHandler("borrar", borrar))
 
-    # Mensajes de texto (ej: "qué tengo hoy")
+    # Mensajes normales
     async def mensajes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texto = update.message.text.lower()
         if "qué tengo" in texto or "que tengo" in texto:
@@ -76,5 +76,4 @@ def iniciar_bot():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensajes))
 
-    print("🤖 Orbis está corriendo...")
-    app.run_polling()
+    return app
