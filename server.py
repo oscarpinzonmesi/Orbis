@@ -1,26 +1,20 @@
-import os
-from flask import Flask, request
-from telegram_bot import crear_app
+from flask import Flask
+from telegram_bot import iniciar_bot
+import threading
 
-PORT = int(os.environ.get("PORT", 10000))
-URL = os.environ.get("RENDER_EXTERNAL_URL", "https://orbis-5gkk.onrender.com")
+app = Flask(__name__)
 
-app_flask = Flask(__name__)
-bot_app = crear_app()
-
-@app_flask.route(f"/webhook/{bot_app.bot.id}", methods=["POST"])
-async def webhook():
-    update = await request.get_json(force=True)
-    await bot_app.update_queue.put(update)
-    return "ok", 200
+@app.route('/')
+def home():
+    return "✅ Orbis está funcionando en la nube 🚀"
 
 if __name__ == "__main__":
-    import asyncio
+    # Ejecutar Flask en un hilo
+    def run_flask():
+        app.run(host="0.0.0.0", port=10000)
 
-    # Configurar Webhook
-    async def main():
-        await bot_app.bot.set_webhook(f"{URL}/webhook/{bot_app.bot.id}")
-        print(f"🚀 Webhook configurado en {URL}/webhook/{bot_app.bot.id}")
-        app_flask.run(host="0.0.0.0", port=PORT)
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
 
-    asyncio.run(main())
+    # Iniciar el bot en el hilo principal (con asyncio)
+    iniciar_bot()
