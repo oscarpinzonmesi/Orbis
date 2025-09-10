@@ -1,7 +1,6 @@
 from flask import Flask
-import threading
-import os
 from telegram_bot import iniciar_bot
+import threading
 
 app = Flask(__name__)
 
@@ -9,14 +8,13 @@ app = Flask(__name__)
 def home():
     return "✅ Orbis está funcionando en la nube 🚀"
 
-def run_bot():
-    iniciar_bot()
-
 if __name__ == "__main__":
-    # Lanzar el bot en segundo plano
-    hilo = threading.Thread(target=run_bot, daemon=True)
-    hilo.start()
+    # Ejecutar Flask en un hilo
+    def run_flask():
+        app.run(host="0.0.0.0", port=10000)
 
-    # Render exige usar el puerto de la variable de entorno
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+
+    # Iniciar el bot en el hilo principal (con asyncio)
+    iniciar_bot()
