@@ -16,7 +16,7 @@ def guardar_agenda(agenda):
 # --- Procesar texto y devolver string ---
 def procesar_texto(texto: str) -> str:
     partes = texto.strip().split()
-    comando = partes[0].lower()
+    comando = partes[0].lower() if partes else ""
 
     if comando == "/start":
         return "👋 Hola, soy Orbis. Tu asistente está listo."
@@ -26,8 +26,7 @@ def procesar_texto(texto: str) -> str:
         if not agenda:
             return "📭 No tienes tareas guardadas."
         else:
-            texto = "\n".join([f"{h} → {t}" for h, t in agenda.items()])
-            return "📝 Agenda:\n" + texto
+            return "📝 Agenda:\n" + "\n".join([f"{h} → {t}" for h, t in agenda.items()])
 
     elif comando == "/registrar":
         try:
