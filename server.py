@@ -131,7 +131,7 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
         except:
             return "❌ Usa el formato: /cuando Juan"
 
-    # --- REPROGRAMAR ---
+        # --- REPROGRAMAR ---
     elif comando == "/reprogramar":
         try:
             vieja = f"{partes[1]} {partes[2]}"
@@ -143,11 +143,31 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
                 del agenda[vieja]
                 agenda[nueva_clave] = tarea
                 guardar_agenda(agenda)
+
+                # 🔔 volver a programar recordatorios si hay chat_id
+                if chat_id:
+                    fecha_hora = datetime.strptime(nueva_clave, "%Y-%m-%d %H:%M")
+                    programar_recordatorio(chat_id, fecha_hora, tarea)
+
                 return f"♻️ Reprogramada: {tarea} ahora en {nueva_clave}"
             else:
                 return "❌ No encontré esa cita para reprogramar."
         except:
             return "❌ Usa el formato: /reprogramar YYYY-MM-DD HH:MM NUEVA_FECHA NUEVA_HORA"
+
+    # --- MODIFICAR ---
+    elif comando == "/modificar":
+        try:
+            clave = f"{partes[1]} {partes[2]}"   # YYYY-MM-DD HH:MM
+            nuevo_texto = " ".join(partes[3:])
+            if clave in agenda:
+                agenda[clave] = nuevo_texto
+                guardar_agenda(agenda)
+                return f"✏️ Modificado: {clave} → {nuevo_texto}"
+            else:
+                return "❌ No encontré cita en esa fecha/hora."
+        except:
+            return "❌ Usa el formato: /modificar YYYY-MM-DD HH:MM Nueva descripción"
 
     # --- BUSCAR POR FECHA ---
     elif comando == "/buscar_fecha":
@@ -182,3 +202,13 @@ def procesar():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+@app.route("/proximos", methods=["GET"])
+def proximos():
+    ahora = datetime.now()
+    agenda = cargar_agenda()
+    proximos = []
+    for clave, tarea in agenda.items():
+        fecha_hora = datetime.strptime(clave, "%Y-%m-%d %H:%M")
+        if ahora <= fecha_hora <= ahora + timedelta(minutes=15):
+            proximos.append({"fecha_hora": clave, "tarea": tarea})
+    return jsonify({"eventos": proximos})
