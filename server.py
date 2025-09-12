@@ -1,21 +1,18 @@
-from flask import Flask, request
-from telegram_bot import iniciar_bot, procesar_update
+from flask import Flask, request, jsonify
+from telegram_bot import procesar_texto
 import os
 
 app = Flask(__name__)
 
-# Ruta principal (solo para comprobar que Render está activo)
-@app.route('/')
+# Ruta de prueba
+@app.route("/")
 def home():
-    return "✅ Orbis está funcionando en la nube 🚀"
+    return "✅ Orbis API lista en Render"
 
-# Ruta del webhook (usará el TOKEN como seguridad)
-@app.route(f'/{os.getenv("TELEGRAM_TOKEN")}', methods=['POST'])
-def webhook():
-    update = request.get_json(force=True)
-    procesar_update(update)
-    return "OK", 200
-
-if __name__ == "__main__":
-    iniciar_bot()   # Inicializa la app de Telegram
-    app.run(host="0.0.0.0", port=10000)
+# Nueva ruta: recibe texto y devuelve respuesta como string
+@app.route("/procesar", methods=["POST"])
+def procesar():
+    data = request.get_json(force=True)
+    texto = data.get("texto", "")
+    respuesta = procesar_texto(texto)
+    return jsonify({"respuesta": respuesta})
