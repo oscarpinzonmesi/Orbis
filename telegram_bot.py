@@ -88,4 +88,10 @@ def procesar_update(update_data):
         raise RuntimeError("❌ El bot no está inicializado")
 
     update = Update.de_json(update_data, app.bot)
+
+    # Inicializar la app antes de procesar el update
+    if not app._initialized:   # check interno
+        asyncio.run(app.initialize())
+
     asyncio.run(app.process_update(update))
+
