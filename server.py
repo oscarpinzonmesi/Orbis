@@ -130,6 +130,20 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
             return f"📌 Tienes con {nombre} en: {', '.join(resultados)}" if resultados else f"❌ No tienes cita con {nombre}"
         except:
             return "❌ Usa el formato: /cuando Juan"
+    # --- BORRAR POR FECHA ---
+    elif comando == "/borrar_fecha":
+        try:
+            fecha = partes[1]  # YYYY-MM-DD
+            eliminados = {h: t for h, t in agenda.items() if h.startswith(fecha)}
+            if eliminados:
+                for h in list(eliminados.keys()):
+                    agenda.pop(h)
+                guardar_agenda(agenda)
+                return f"🗑️ Se borraron todas las citas del {fecha}."
+            else:
+                return f"📭 No había citas el {fecha}."
+        except:
+            return "❌ Usa el formato: /borrar_fecha YYYY-MM-DD"
 
         # --- REPROGRAMAR ---
     elif comando == "/reprogramar":
