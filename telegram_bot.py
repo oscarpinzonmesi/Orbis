@@ -1,12 +1,17 @@
+
+
+
 import os
 import json
 import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+import asyncio
+
 
 AGENDA_FILE = "agenda.json"
 app = None  # instancia global de la aplicación
-
+loop = asyncio.get_event_loop()  # bucle global
 # --- Funciones para manejar la agenda ---
 def cargar_agenda():
     if not os.path.exists(AGENDA_FILE):
@@ -56,7 +61,7 @@ async def borrar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Inicialización del bot ---
 def iniciar_bot():
-    global app
+    global app, loop   # 👈 importante: usamos la global
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         raise ValueError("⚠️ TELEGRAM_TOKEN no está configurado")
@@ -79,19 +84,29 @@ def iniciar_bot():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensajes))
 
+    # Inicializar loop global en un hilo
+    loop = asyncio.get_event_loop()
+    if not loop.is_running():
+        threading.Thread(target=loop.run_forever, daemon=True).start()
+
     print("🤖 Orbis está listo con Webhook")
 
-# --- Procesar actualizaciones que vienen de Telegram ---
+
+
+
 def procesar_update(update_data):
-    global app
+    global app, loop
     if app is None:
         raise RuntimeError("❌ El bot no está inicializado")
 
     update = Update.de_json(update_data, app.bot)
 
-    # Inicializar la app antes de procesar el update
-    if not app._initialized:   # check interno
-        asyncio.run(app.initialize())
+    async def handle():
+        if not app._initialized:
+            await app.initialize()
+        await app.process_update(update)
 
-    asyncio.run(app.process_update(update))
+    # Ejecutar la corrutina en el loop global
+    asyncio.run_coroutine_threadsafe(handle(), loop)
+
 
