@@ -302,16 +302,21 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
             guardar_agenda(agenda)
             return {"ok": True, "op": "borrar_todo", "count": cnt}
 
-        elif comando == "/buscar":
-            nombre = " ".join(partes[1:]).lower()
-            items = [{"fecha": h[:10], "hora": h[11:], "texto": t}
-                     for h, t in _ordenar_items(agenda) if nombre in t.lower()]
-            return {"ok": True, "op": "buscar", "q": nombre, "items": items}
+       elif comando == "/buscar":
+            q = " ".join(partes[1:]).lower()
+            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+            ordenados = _ordenar_items(agenda)
+            filtradas = [(h, t) for h, t in ordenados if patron.match(h) and q in t.lower()]
+            items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
+            return {"ok": True, "op": "buscar", "q": q, "items": items}
+
 
         elif comando == "/cuando":
-            nombre = " ".join(partes[1:]).lower()
-            fechas = [h for h, t in _ordenar_items(agenda) if nombre in t.lower()]
-            return {"ok": True, "op": "cuando", "q": nombre, "fechas": fechas}
+            q = " ".join(partes[1:]).lower()
+            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+            ordenados = _ordenar_items(agenda)
+            fechas = [h for h, t in ordenados if patron.match(h) and q in t.lower()]
+            return {"ok": True, "op": "cuando", "q": q, "fechas": fechas}
 
         elif comando == "/reprogramar":
             vieja = f"{_clean_token(partes[1])} {_clean_token(partes[2])}"
@@ -337,9 +342,12 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
 
         elif comando == "/buscar_fecha":
             fecha = _clean_token(partes[1])
-            items = [{"fecha": h[:10], "hora": h[11:], "texto": t}
-                     for h, t in _ordenar_items(agenda) if h.startswith(fecha)]
+            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+            ordenados = _ordenar_items(agenda)
+            filtradas = [(h, t) for h, t in ordenados if patron.match(h) and h.startswith(fecha)]
+            items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
             return {"ok": True, "op": "buscar_fecha", "fecha": fecha, "items": items}
+
 
         elif comando == "/proximos":
             ahora = datetime.now(); ventana = ahora + timedelta(minutes=1)
