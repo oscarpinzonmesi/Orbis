@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 import requests
-
+import re
 app = Flask(__name__)
 
 AGENDA_FILE = "agenda.json"
@@ -253,8 +253,13 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
     agenda = cargar_agenda()
 
     try:
-        if comando == "/agenda":
-            items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in _ordenar_items(agenda)]
+
+        # ...
+        elif comando == "/agenda":
+            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+            ordenados = _ordenar_items(agenda)
+            filtradas = [(h, t) for h, t in ordenados if patron.match(h)]  # solo claves válidas
+            items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
             return {"ok": True, "op": "agenda", "items": items}
 
         elif comando == "/registrar":
