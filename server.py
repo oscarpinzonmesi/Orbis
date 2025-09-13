@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 import requests
 import re
+
 app = Flask(__name__)
 
 AGENDA_FILE = "agenda.json"
@@ -74,6 +75,14 @@ def _ordenar_items(dic):
                 return datetime.max
         return sorted(dic.items(), key=lambda kv: _safe_dt(kv[0]))
 
+# ========= HELPER para modo JSON: filtrar claves inválidas (sin romper modo texto) =========
+
+PATRON_CLAVE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+
+def items_validos(dic):
+    """Devuelve solo (clave, texto) con clave en formato 'YYYY-MM-DD HH:MM', ya ordenados."""
+    return [(h, t) for h, t in _ordenar_items(dic) if PATRON_CLAVE.match(h)]
+
 # ===================== LÓGICA (texto plano, compatibilidad) =====================
 
 def procesar_texto(texto: str, chat_id: str = None) -> str:
@@ -89,7 +98,7 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
     elif comando == "/agenda":
         if not agenda:
             return "📭 No tienes tareas guardadas."
-        items = _ordenar_items(agenda)
+        items = _ordenar_items(agenda)  # 🔁 dejamos tu comportamiento en modo texto
         salida = "📝 Agenda:\n"
         for fecha_hora, tarea in items:
             salida += f"{fecha_hora} → {tarea}\n"
@@ -99,7 +108,7 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
     elif comando == "/registrar":
         try:
             fecha = _clean_token(partes[1])  # YYYY-MM-DD
-            hora = _clean_token(partes[2])   # HH:MM
+            hora  = _clean_token(partes[2])  # HH:MM
             tarea = " ".join(partes[3:])
             clave = f"{fecha} {hora}"
             # validar fecha-hora
@@ -164,7 +173,7 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
     elif comando == "/buscar":
         try:
             nombre = " ".join(partes[1:]).lower()
-            items = _ordenar_items(agenda)
+            items = _ordenar_items(agenda)  # 🔁 modo texto se mantiene
             resultados = [f"{h} → {t}" for h, t in items if nombre in t.lower()]
             return "🔎 Encontré:\n" + "\n".join(resultados) if resultados else f"❌ No encontré citas con {nombre}"
         except Exception:
@@ -174,7 +183,7 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
     elif comando == "/cuando":
         try:
             nombre = " ".join(partes[1:]).lower()
-            items = _ordenar_items(agenda)
+            items = _ordenar_items(agenda)  # 🔁 modo texto se mantiene
             resultados = [h for h, t in items if nombre in t.lower()]
             return f"📌 Tienes con {nombre} en: {', '.join(resultados)}" if resultados else f"❌ No tienes cita con {nombre}"
         except Exception:
@@ -247,18 +256,15 @@ def procesar_texto(texto: str, chat_id: str = None) -> str:
 def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
     """
     Devuelve datos estructurados (sin redacción humana) para que GPT componga la respuesta.
+    En este modo se filtran claves inválidas para no enviar basura a BridgeBot.
     """
     partes = texto.strip().split()
     comando = partes[0].lower() if partes else ""
     agenda = cargar_agenda()
 
     try:
-
-        # ...
-        elif comando == "/agenda":
-            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
-            ordenados = _ordenar_items(agenda)
-            filtradas = [(h, t) for h, t in ordenados if patron.match(h)]  # solo claves válidas
+        if comando == "/agenda":
+            filtradas = items_validos(agenda)
             items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
             return {"ok": True, "op": "agenda", "items": items}
 
@@ -288,7 +294,8 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
                 fecha = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
             else:
                 fecha = fecha_raw
-            afectados = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in agenda.items() if h.startswith(fecha)]
+            afectados = [{"fecha": h[:10], "hora": h[11:], "texto": t}
+                         for h, t in agenda.items() if h.startswith(fecha) and PATRON_CLAVE.match(h)]
             if afectados:
                 for h in list(agenda.keys()):
                     if h.startswith(fecha):
@@ -302,20 +309,15 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
             guardar_agenda(agenda)
             return {"ok": True, "op": "borrar_todo", "count": cnt}
 
-       elif comando == "/buscar":
+        elif comando == "/buscar":
             q = " ".join(partes[1:]).lower()
-            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
-            ordenados = _ordenar_items(agenda)
-            filtradas = [(h, t) for h, t in ordenados if patron.match(h) and q in t.lower()]
+            filtradas = [(h, t) for h, t in items_validos(agenda) if q in t.lower()]
             items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
             return {"ok": True, "op": "buscar", "q": q, "items": items}
 
-
         elif comando == "/cuando":
             q = " ".join(partes[1:]).lower()
-            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
-            ordenados = _ordenar_items(agenda)
-            fechas = [h for h, t in ordenados if patron.match(h) and q in t.lower()]
+            fechas = [h for h, t in items_validos(agenda) if q in t.lower()]
             return {"ok": True, "op": "cuando", "q": q, "fechas": fechas}
 
         elif comando == "/reprogramar":
@@ -323,6 +325,9 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
             nueva_fecha = _clean_token(partes[3]); nueva_hora = _clean_token(partes[4])
             nueva = f"{nueva_fecha} {nueva_hora}"
             if vieja in agenda:
+                # Validar
+                datetime.strptime(vieja, "%Y-%m-%d %H:%M")
+                datetime.strptime(nueva, "%Y-%m-%d %H:%M")
                 tarea = agenda.pop(vieja)
                 agenda[nueva] = tarea
                 guardar_agenda(agenda)
@@ -335,28 +340,25 @@ def procesar_texto_json(texto: str, chat_id: str = None) -> dict:
             clave = f"{_clean_token(partes[1])} {_clean_token(partes[2])}"
             nuevo_texto = " ".join(partes[3:])
             if clave in agenda:
+                # Validar clave
+                datetime.strptime(clave, "%Y-%m-%d %H:%M")
                 agenda[clave] = nuevo_texto
                 guardar_agenda(agenda)
-                return {"ok": True, "op": "modificar", "item": {"fecha": clave[:10], "hora": clave[11:], "texto": nuevo_texto}}
+                return {"ok": True, "op": "modificar",
+                        "item": {"fecha": clave[:10], "hora": clave[11:], "texto": nuevo_texto}}
             return {"ok": False, "op": "modificar", "error": "no_encontrado"}
 
         elif comando == "/buscar_fecha":
             fecha = _clean_token(partes[1])
-            patron = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
-            ordenados = _ordenar_items(agenda)
-            filtradas = [(h, t) for h, t in ordenados if patron.match(h) and h.startswith(fecha)]
+            filtradas = [(h, t) for h, t in items_validos(agenda) if h.startswith(fecha)]
             items = [{"fecha": h[:10], "hora": h[11:], "texto": t} for h, t in filtradas]
             return {"ok": True, "op": "buscar_fecha", "fecha": fecha, "items": items}
-
 
         elif comando == "/proximos":
             ahora = datetime.now(); ventana = ahora + timedelta(minutes=1)
             eventos = []
-            for clave, tarea in agenda.items():
-                try:
-                    fh = datetime.strptime(clave, "%Y-%m-%d %H:%M")
-                except ValueError:
-                    continue
+            for clave, tarea in items_validos(agenda):
+                fh = datetime.strptime(clave, "%Y-%m-%d %H:%M")
                 if ahora <= fh <= ventana:
                     eventos.append({"fecha": clave[:10], "hora": clave[11:], "texto": tarea})
             return {"ok": True, "op": "proximos", "eventos": eventos}
@@ -393,11 +395,8 @@ def procesar():
         agenda = cargar_agenda()
 
         eventos = []
-        for clave, tarea in agenda.items():
-            try:
-                fecha_hora = datetime.strptime(clave, "%Y-%m-%d %H:%M")
-            except ValueError:
-                continue
+        for clave, tarea in items_validos(agenda):
+            fecha_hora = datetime.strptime(clave, "%Y-%m-%d %H:%M")
             if ahora <= fecha_hora <= ventana:
                 if chat_id:
                     eventos.append({
@@ -419,11 +418,8 @@ def proximos():
     eventos = []
     chat_id = request.args.get("chat_id")  # opcional para pruebas
 
-    for clave, tarea in agenda.items():
-        try:
-            fecha_hora = datetime.strptime(clave, "%Y-%m-%d %H:%M")
-        except ValueError:
-            continue
+    for clave, tarea in items_validos(agenda):
+        fecha_hora = datetime.strptime(clave, "%Y-%m-%d %H:%M")
         if ahora <= fecha_hora <= ventana:
             if chat_id:
                 eventos.append({
