@@ -1,27 +1,17 @@
 import os
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from mesagpt import mesa_gpt  # Importa el cerebro
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ORBIS_URL = os.getenv("ORBIS_URL", "https://orbis-5gkk.onrender.com/procesar")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     texto_usuario = update.message.text
 
-    try:
-        resp = requests.post(
-            ORBIS_URL,
-            json={"texto": texto_usuario, "chat_id": chat_id},
-            timeout=10
-        )
-        data = resp.json()
-        # Orbis devuelve {"respuesta": "..."} en modo texto
-        respuesta = data.get("respuesta", "❌ Orbis no respondió correctamente.")
-    except Exception as e:
-        respuesta = f"❌ Error procesando con Orbis: {e}"
+    print(f"➡️ Orbis recibió: {texto_usuario}")
 
+    respuesta = mesa_gpt(texto_usuario, chat_id=chat_id)
     await context.bot.send_message(chat_id=chat_id, text=respuesta)
 
 if __name__ == "__main__":
@@ -30,9 +20,9 @@ if __name__ == "__main__":
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # Captura todos los mensajes
+    # Captura todos los mensajes (texto y comandos)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
-    print("🤖 Orbis en Telegram (PTB 20.3) está activo…")
+    print("🤖 Orbis conectado a Telegram y listo para conversar + manejar agenda.")
     app.run_polling()
