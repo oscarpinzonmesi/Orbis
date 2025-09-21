@@ -2,7 +2,7 @@ import os
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
-from mesagpt import mesa_gpt  # Importa el cerebro
+
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ORBIS_URL = os.getenv("ORBIS_URL", "https://orbis-5gkk.onrender.com/procesar")
