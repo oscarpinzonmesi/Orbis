@@ -1,1 +1,1 @@
-web: gunicorn server:app
+web: python telegram_mesagpt.py

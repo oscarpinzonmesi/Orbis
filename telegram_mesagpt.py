@@ -1,14 +1,13 @@
 import os
 import requests
-from telegram.ext import Updater, MessageHandler, Filters
-from mesagpt import mesa_gpt  # Importa el cerebro que ya hicimos
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from mesagpt import mesa_gpt  # Importa el cerebro
 
-# ============= CONFIG =============
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")  # ponlo en variables de entorno
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ORBIS_URL = os.getenv("ORBIS_URL", "https://orbis-5gkk.onrender.com/procesar")
 
-# ============= HANDLER =============
-def handle_message(update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     texto_usuario = update.message.text
 
@@ -17,19 +16,17 @@ def handle_message(update, context):
     except Exception as e:
         respuesta = f"❌ Error procesando: {e}"
 
-    context.bot.send_message(chat_id=chat_id, text=respuesta)
+    await context.bot.send_message(chat_id=chat_id, text=respuesta)
 
-# ============= MAIN =============
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN:
         raise RuntimeError("Falta TELEGRAM_TOKEN en variables de entorno")
 
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    dp.add_handler(MessageHandler(Filters.command, handle_message))
+    # Captura todos los mensajes de texto
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
-    print("🤖 MesaGPT en Telegram está activo…")
-    updater.start_polling()
-    updater.idle()
+    print("🤖 MesaGPT en Telegram (PTB 20.3) está activo…")
+    app.run_polling()
