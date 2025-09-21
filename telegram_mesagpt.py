@@ -41,11 +41,17 @@ if __name__ == "__main__":
     if not TELEGRAM_TOKEN:
         raise RuntimeError("⚠️ Falta TELEGRAM_TOKEN en variables de entorno")
 
-    # Configura el webhook en Telegram
+    import asyncio
     from telegram import Bot
-    bot = Bot(token=TELEGRAM_TOKEN)
-    bot.delete_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
+
+    async def setup_webhook():
+        bot = Bot(token=TELEGRAM_TOKEN)
+        await bot.delete_webhook()
+        await bot.set_webhook(url=WEBHOOK_URL)
+        print(f"🤖 Orbis conectado a Telegram con Webhook en {WEBHOOK_URL}")
+
+    asyncio.run(setup_webhook())
+
 
     print(f"🤖 Orbis conectado a Telegram con Webhook en {WEBHOOK_URL}")
     flask_app.run(host="0.0.0.0", port=10000)
