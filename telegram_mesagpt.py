@@ -5,6 +5,8 @@ from flask import Flask, request
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 from openai import OpenAI
+import telegram
+print("📦 Versión python-telegram-bot:", telegram.__version__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -107,6 +109,7 @@ def webhook():
     except Exception as e:
         print(f"❌ Error procesando update: {e}")
     return "ok", 200
+    
 
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
