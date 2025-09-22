@@ -2,7 +2,14 @@ import os
 import logging
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, ApplicationBuilder
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    MessageHandler,
+    CommandHandler,
+    ContextTypes,
+    filters
+)
 from openai import OpenAI
 
 # ========= Configuración ==========
@@ -22,7 +29,7 @@ logger = logging.getLogger(__name__)
 telegram_app: Application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
 # ========= Funciones ==========
-async def handle_message(update: Update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
 
     # Enviar a ChatGPT
@@ -40,8 +47,9 @@ async def handle_message(update: Update, context):
 
     await update.message.reply_text(reply_text)
 
+# Agregar manejador de mensajes
 telegram_app.add_handler(
-    telegram.ext.MessageHandler(telegram.ext.filters.TEXT & ~telegram.ext.filters.COMMAND, handle_message)
+    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
 )
 
 # ========= Webhook ==========
