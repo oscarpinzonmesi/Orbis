@@ -1,20 +1,20 @@
-Write-Host "⚠️ Borrando proyecto y entornos virtuales..."
+# reset.ps1 - limpia todo el proyecto Orbis
 
-# Ruta de tu proyecto
-$projectPath = "C:\Users\oscar\Desktop\Orbis"
+Write-Host "🧹 Limpiando el proyecto Orbis..."
 
-# Eliminar todo el contenido del proyecto (excepto el script mismo)
-Get-ChildItem -Path $projectPath -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+# Elimina la carpeta del entorno virtual si existe
+if (Test-Path ".venv") {
+    Remove-Item -Recurse -Force ".venv"
+    Write-Host "✔ .venv eliminado"
+}
 
-# Eliminar entornos virtuales
-Remove-Item -Recurse -Force "$projectPath\.venv" -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force "$projectPath\venv" -ErrorAction SilentlyContinue
+# Elimina cachés de Python
+Get-ChildItem -Recurse -Include "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "✔ Cachés de Python eliminados"
 
-# Eliminar cachés de Python
-Get-ChildItem -Path $projectPath -Recurse -Include "__pycache__","*.pyc" -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+# Elimina carpeta dist/build (si existe)
+if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+Write-Host "✔ Archivos de compilación eliminados"
 
-# Vaciar caché de pip
-pip cache purge
-
-Write-Host "✅ Proyecto, dependencias y caché eliminados."
-Write-Host "👉 Ahora puedes volver a clonar tu repo o subir tu código limpio."
+Write-Host "✅ Proyecto limpio. Listo para reinstalar dependencias."
