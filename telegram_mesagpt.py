@@ -114,8 +114,9 @@ def home():
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    asyncio.run(telegram_app.update_queue.put(update))
+    telegram_app.create_task(telegram_app.process_update(update))  # 👈 así sí dispara a ChatGPT o Agenda
     return "ok", 200
+
 
 # -------------------- 🚀 Main --------------------
 if __name__ == "__main__":
