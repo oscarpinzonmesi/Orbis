@@ -33,11 +33,14 @@ telegram_app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
 # Ruta webhook
 @flask_app.route("/webhook", methods=["POST"])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.update_queue.put(update)  # ✅ ahora sí con await y update correcto
+
+    import asyncio
+    asyncio.run(telegram_app.update_queue.put(update))  # Forzamos ejecución async
     return "ok", 200
+
 
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN:
