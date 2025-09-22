@@ -3,7 +3,7 @@ import logging
 import asyncio
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, ApplicationBuilder
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 from openai import OpenAI
 
 # === Configuración ===
@@ -13,7 +13,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Cliente OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Bot Telegram
+# Telegram Bot
 telegram_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
 # Flask
@@ -38,6 +38,19 @@ async def ask_chatgpt(prompt: str) -> str:
         return "⚠️ Error al consultar ChatGPT."
 
 
+# === Manejador de mensajes ===
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = update.message.text
+    logging.info(f"Mensaje recibido: {user_message}")
+
+    reply = await ask_chatgpt(user_message)
+    await update.message.reply_text(reply)
+
+
+# Registramos el handler
+telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -47,16 +60,6 @@ def webhook():
     except Exception as e:
         logging.error(f"Error procesando update: {e}")
     return "ok"
-
-
-# === Manejador de mensajes ===
-@telegram_app.message_handler()
-async def handle_message(update: Update, context):
-    user_message = update.message.text
-    logging.info(f"Mensaje recibido: {user_message}")
-
-    reply = await ask_chatgpt(user_message)
-    await update.message.reply_text(reply)
 
 
 # === Inicio local ===
