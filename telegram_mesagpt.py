@@ -31,9 +31,6 @@ def guardar_agenda(agenda):
 
 # -------------------- 🤖 Cerebro GPT --------------------
 def consultar_asistente(mensaje, chat_id):
-    """
-    GPT decide si responde normal o si debe manipular la agenda.
-    """
     try:
         agenda = cargar_agenda()
         completion = client.chat.completions.create(
@@ -76,10 +73,8 @@ def home():
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))  # ✅ estable en Flask
+    asyncio.run(telegram_app.process_update(update))  # ✅ estable
     return "ok", 200
-
-
 
 # -------------------- 🚀 Main --------------------
 if __name__ == "__main__":
