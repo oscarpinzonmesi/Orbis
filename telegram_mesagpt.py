@@ -77,6 +77,7 @@ def webhook():
     return "ok", 200
 
 
+
 # -------------------- 🚀 Main --------------------
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
