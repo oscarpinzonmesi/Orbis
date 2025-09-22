@@ -73,8 +73,12 @@ def home():
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))  # ✅ correcto
+    try:
+        asyncio.run(telegram_app.process_update(update))
+    except Exception as e:
+        print(f"❌ Error procesando update: {e}")
     return "ok", 200
+
 
 
 
