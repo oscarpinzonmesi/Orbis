@@ -73,8 +73,9 @@ def home():
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))  # ✅ estable
+    asyncio.run(telegram_app.process_update(update))  # ✅ correcto
     return "ok", 200
+
 
 # -------------------- 🚀 Main --------------------
 if __name__ == "__main__":
