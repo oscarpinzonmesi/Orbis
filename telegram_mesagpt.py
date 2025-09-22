@@ -105,7 +105,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 telegram_app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
-# -------------------- 🌐 Webhook --------------------
+# -------------------- 🌐 Web --------------------
+@flask_app.route("/", methods=["GET"])
+def home():
+    return "🤖 Orbis está en línea y conectado a Telegram 🚀"
+
 @flask_app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
@@ -113,6 +117,7 @@ def webhook():
     asyncio.run(telegram_app.update_queue.put(update))
     return "ok", 200
 
+# -------------------- 🚀 Main --------------------
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
         raise RuntimeError("⚠️ Faltan variables de entorno TELEGRAM_TOKEN o OPENAI_API_KEY")
